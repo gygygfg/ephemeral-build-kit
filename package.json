@@ -1,0 +1,36 @@
+{
+  "name": "ephemeral-build-kit",
+  "version": "0.1.0",
+  "description": "CI-style ephemeral VM testing on Windows/Linux via docker-compose (dockur/windows, qemus/qemu) with Playwright screen capture and GitHub-Actions style auto-cleanup.",
+  "type": "module",
+  "bin": {
+    "ebk": "./src/index.js"
+  },
+  "main": "./src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "list": "node src/index.js list",
+    "probe": "node src/index.js probe",
+    "generate": "node src/index.js generate"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "docker",
+    "vm",
+    "ci",
+    "testing",
+    "windows",
+    "linux",
+    "compose",
+    "screenshot",
+    "ephemeral"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "js-yaml": "^4.1.0",
+    "playwright": "^1.47.0"
+  }
+}
