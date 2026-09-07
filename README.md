@@ -255,6 +255,15 @@ environment-validated recipe works even when the guest cannot reach the SMB
    and then perform a graceful `shutdown /s`; when the container exits, mount
    `data.img` read-only with ntfs-3g to copy out the artifacts.
 
+## Agent skills
+
+For LLM agents that want to drive `ebk`, the CLI is exposed as a set of
+structured tool-calling (function-calling) definitions in
+[`skills/ebk.skills.json`](skills/ebk.skills.json). Each entry has the standard
+`name` / `description` / `parameters` (JSON Schema) shape covering `list`,
+`probe`, `generate`, `run` and the `browser` subcommands — see
+[`skills/README.md`](skills/README.md).
+
 ## Notes
 
 - Both image families share the **same web viewer on port 8006**, which is why
