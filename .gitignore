@@ -23,3 +23,6 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Skill package build artifacts (tools/package-skill.sh)
+ebk.skill.zip

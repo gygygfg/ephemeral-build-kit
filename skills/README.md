@@ -38,3 +38,34 @@
 - The consuming agent should map the returned CLI-style args (e.g. `--web-port`,
   `--test-dir`) to the `ebk` process and pass `--help` output back for unknown
   options.
+
+## Anthropic Skill package (self-contained)
+
+Besides the function-calling schemas above, `ebk` is also provided as a
+self-contained **Anthropic Skill** (`SKILL.md`-based) bundle in
+[`ebk/`](ebk/). It ships the runnable CLI under `src/` (plus `browser/`,
+`package.json`, `package-lock.json`) and the schemas as `ebk.skills.json`.
+`node_modules` is **not** bundled.
+
+Build the skill zip with [`tools/package-skill.sh`](../tools/package-skill.sh):
+
+```bash
+# self-contained: copy src/ + browser/ + package*.json + authored docs, then zip
+tools/package-skill.sh --project . -o ebk.skill.zip
+
+# validate only (frontmatter + SKILL.md checks, no zip written)
+tools/package-skill.sh --check skills/ebk
+```
+
+Once installed, the skill folder IS the project root; run the CLI from it:
+
+```bash
+npm install --no-audit --no-fund
+npx playwright install chromium
+node src/index.js list
+```
+
+`package-skill.sh --project` copies the project runtime plus `skills/ebk/`'s
+authored docs into a temp staging dir, then zips it into the Anthropic layout
+(first layer = `ebk/`, `SKILL.md` at its root). See
+[`skills/ebk/SKILL.md`](ebk/SKILL.md) for the agent-facing instructions.

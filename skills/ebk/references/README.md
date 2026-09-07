@@ -264,23 +264,6 @@ structured tool-calling (function-calling) definitions in
 `probe`, `generate`, `run` and the `browser` subcommands — see
 [`skills/README.md`](skills/README.md).
 
-### Skill package (Anthropic Skill)
-
-You can also package `ebk` as a self-contained Anthropic Skill
-(`SKILL.md`-based)
-[`skills/ebk/`](skills/ebk/) bundle that ships the runnable CLI (`src/` plus
-`browser/` and `package*.json`) and the schemas, but **not** `node_modules`:
-
-```bash
-tools/package-skill.sh --project . -o ebk.skill.zip   # self-contained zip
-tools/package-skill.sh --check skills/ebk             # validate only
-```
-
-After installing the zip, run `npm install` in the skill folder (it is the
-project root), then drive the CLI as `node src/index.js ...`. See
-[`skills/ebk/SKILL.md`](skills/ebk/SKILL.md) and
-[`skills/README.md`](skills/README.md).
-
 ## Notes
 
 - Both image families share the **same web viewer on port 8006**, which is why

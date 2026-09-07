@@ -1,0 +1,147 @@
+[
+  {
+    "name": "ebk_list",
+    "description": "List the OS ids and images supported by ephemeral-build-kit (ebk). Use this to discover a valid --os id before running ebk_generate or ebk_run.",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ebk_probe",
+    "description": "Verify the host: Docker daemon, /dev/kvm and /dev/net/tun availability. Run this before starting any VM to confirm the environment is ready.",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ebk_generate",
+    "description": "Generate a docker-compose.yml for an OS without running the VM. Host ports are auto-shifted (后延) to the next free port if the requested one is occupied.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "os": { "type": "string", "description": "Operating system id, e.g. win10, win11, ubuntu, arch. Use ebk_list to see options." },
+        "runId": { "type": "string", "description": "Run id used in container/compose/storage names. Auto-generated if omitted." },
+        "ram": { "type": "string", "description": "RAM size, e.g. 4G, 8G. Default 4G." },
+        "cpu": { "type": "integer", "description": "CPU cores. Default 2." },
+        "disk": { "type": "string", "description": "Disk size, e.g. 64G. Default 64G." },
+        "testDir": { "type": "string", "description": "Host dir mounted as the shared/test folder (/shared or Z:)." },
+        "packageDir": { "type": "string", "description": "Host dir mounted as the package/oem folder." },
+        "oemDir": { "type": "string", "description": "Host dir mounted to /oem (Windows install.bat)." },
+        "debug": { "type": "boolean", "description": "Enable verbose DEBUG/TRACE in the guest and print the compose file." },
+        "username": { "type": "string", "description": "Windows username (default Docker)." },
+        "password": { "type": "string", "description": "Windows password (default admin)." },
+        "language": { "type": "string", "description": "Windows display language." },
+        "versionUrl": { "type": "string", "description": "Custom Windows ISO/version URL." },
+        "bootUrl": { "type": "string", "description": "Custom Linux image URL." },
+        "webPort": { "type": "integer", "description": "Host port for the 8006 web viewer. Default 8006." },
+        "vncPort": { "type": "integer", "description": "Host port for the native 5900 VNC server. Default 5900." },
+        "sshPort": { "type": "integer", "description": "Guest SSH port (Linux only)." },
+        "rdpPort": { "type": "integer", "description": "Guest RDP port (Windows only)." }
+      },
+      "required": ["os"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ebk_run",
+    "description": "Full CI-style pipeline: generate -> docker compose up -> wait -> run tests -> capture screenshots/video -> collect artifacts -> cleanup. Runs a disposable VM and reports success/failure.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "os": { "type": "string", "description": "Operating system id, e.g. win10, ubuntu, arch. Required." },
+        "runId": { "type": "string", "description": "Run id used in names/paths. Auto-generated if omitted." },
+        "ram": { "type": "string", "description": "RAM size. Default 4G." },
+        "cpu": { "type": "integer", "description": "CPU cores. Default 2." },
+        "disk": { "type": "string", "description": "Disk size. Default 64G." },
+        "testDir": { "type": "string", "description": "Host dir mounted as the shared/test folder; the kit watches it for a RESULT_<runId>.* marker." },
+        "packageDir": { "type": "string", "description": "Host dir mounted as the package/oem folder." },
+        "oemDir": { "type": "string", "description": "Host dir mounted to /oem (Windows install.bat)." },
+        "debug": { "type": "boolean", "description": "Enable verbose DEBUG/TRACE in the guest." },
+        "username": { "type": "string", "description": "Windows username (default Docker)." },
+        "password": { "type": "string", "description": "Windows password (default admin)." },
+        "language": { "type": "string", "description": "Windows display language." },
+        "versionUrl": { "type": "string", "description": "Custom Windows ISO/version URL." },
+        "bootUrl": { "type": "string", "description": "Custom Linux image URL." },
+        "webPort": { "type": "integer", "description": "Host port for the 8006 web viewer. Default 8006." },
+        "vncPort": { "type": "integer", "description": "Host port for the native 5900 VNC server. Default 5900." },
+        "sshPort": { "type": "integer", "description": "Guest SSH port (Linux only)." },
+        "rdpPort": { "type": "integer", "description": "Guest RDP port (Windows only)." },
+        "screenshotEvery": { "type": "number", "description": "Screenshot interval in seconds. Default 30." },
+        "noVideo": { "type": "boolean", "description": "Disable full-session screen recording." },
+        "testTimeout": { "type": "number", "description": "Max minutes to wait for a test result marker. Default 20." },
+        "waitTimeout": { "type": "number", "description": "Max minutes to wait for install readiness. Default 30." },
+        "bootSettle": { "type": "number", "description": "Fallback settle time in seconds after the viewer is up. Default 0." },
+        "keep": { "type": "boolean", "description": "Keep the container, compose file and storage after the run." }
+      },
+      "required": ["os"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ebk_browser_up",
+    "description": "Start a disposable Selenium Chrome container (Chrome + WebDriver + XFCE desktop + VNC + noVNC) and keep it running for browser-driven work. Prints the WebDriver / noVNC / VNC endpoints.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "runId": { "type": "string", "description": "Run id used in names/paths. Auto-generated if omitted." },
+        "buildDir": { "type": "string", "description": "Build context dir. Default <repo>/browser." },
+        "browserImage": { "type": "string", "description": "Use a prebuilt image tag instead of building." },
+        "seleniumPort": { "type": "integer", "description": "Host port for Selenium WebDriver. Default 4444." },
+        "vncPort": { "type": "integer", "description": "Host port for VNC. Default 5900." },
+        "noVncPort": { "type": "integer", "description": "Host port for noVNC. Default 7900." },
+        "shmSize": { "type": "string", "description": "Shared memory size for the container. Default 2gb." },
+        "vncPassword": { "type": "string", "description": "VNC password. Default secret." },
+        "keep": { "type": "boolean", "description": "Keep the container, compose and state after stopping." }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ebk_browser_run",
+    "description": "Full browser pipeline: start a Selenium Chrome container -> wait for WebDriver/noVNC -> capture screenshots/video (and optionally wait for a RESULT_<runId>.* marker) -> collect logs -> cleanup.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "runId": { "type": "string", "description": "Run id used in names/paths. Auto-generated if omitted." },
+        "testDir": { "type": "string", "description": "Host dir that receives a RESULT_<runId>.* marker." },
+        "buildDir": { "type": "string", "description": "Build context dir. Default <repo>/browser." },
+        "browserImage": { "type": "string", "description": "Use a prebuilt image tag instead of building." },
+        "seleniumPort": { "type": "integer", "description": "Host port for Selenium WebDriver. Default 4444." },
+        "vncPort": { "type": "integer", "description": "Host port for VNC. Default 5900." },
+        "noVncPort": { "type": "integer", "description": "Host port for noVNC. Default 7900." },
+        "shmSize": { "type": "string", "description": "Shared memory size for the container. Default 2gb." },
+        "vncPassword": { "type": "string", "description": "VNC password. Default secret." },
+        "screenshotEvery": { "type": "number", "description": "Screenshot interval in seconds. Default 30." },
+        "noVideo": { "type": "boolean", "description": "Disable full-session screen recording." },
+        "duration": { "type": "number", "description": "Capture duration in seconds when no --test-dir. Default 60." },
+        "testTimeout": { "type": "number", "description": "Max minutes to wait for a result marker. Default 20." },
+        "keep": { "type": "boolean", "description": "Keep the container, compose and state after stopping." }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ebk_browser_status",
+    "description": "Report whether the disposable browser container is running and show its WebDriver / noVNC / VNC endpoints.",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ebk_browser_down",
+    "description": "Stop and remove the disposable browser container started with ebk_browser_up, plus its compose dir, storage dir and state file.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "keep": { "type": "boolean", "description": "Keep the container, compose and state after stopping." }
+      },
+      "additionalProperties": false
+    }
+  }
+]
