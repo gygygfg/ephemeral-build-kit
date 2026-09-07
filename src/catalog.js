@@ -3,7 +3,7 @@
 // Linux: BOOT). Mirrors the upstream dockur/windows and qemus/qemu tables.
 
 export const WINDOWS_IMAGE = "dockurr/windows";
-export const LINUX_IMAGE = "qemus/qemu";
+export const LINUX_IMAGE = "qemux/qemu";
 
 const windows = (id, version, label) => ({ type: "windows", id, version, label, image: WINDOWS_IMAGE });
 const linux = (id, boot, label) => ({ type: "linux", id, boot, label, image: LINUX_IMAGE });

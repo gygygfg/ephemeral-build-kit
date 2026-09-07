@@ -12,6 +12,9 @@ captest/
 drive_probe.mjs
 snap.mjs
 
+# Downloaded runtimes / build cache
+cache/
+
 # Logs
 *.log
 npm-debug.log*

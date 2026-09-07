@@ -6,6 +6,7 @@ import { prepareRunDir, projectRoot, writeFileSync, cleanupRun } from "./store.j
 import { waitForReady, sleep } from "./wait.js";
 import { captureSession } from "./capture.js";
 import { execa } from "./exec.js";
+import { resolvePorts, describeShifts, formatPortMap } from "./ports.js";
 
 export function makeRunId() {
   return crypto.randomBytes(4).toString("hex");
@@ -34,7 +35,19 @@ export async function run(opts) {
     log,
   } = opts;
 
-  const webPort = ports.web || 8006;
+  // Resolve host ports, shifting to the next free port when one is occupied.
+  const requestedPorts = {
+    web: ports.web || 8006,
+    vnc: ports.vnc || 5900,
+  };
+  if (os.type === "windows" && ports.rdp) requestedPorts.rdp = ports.rdp;
+  if (os.type !== "windows" && ports.ssh) requestedPorts.ssh = ports.ssh;
+  const resolvedPorts = await resolvePorts(requestedPorts, { host: ports.host });
+  const webPort = resolvedPorts.web;
+  const shifts = describeShifts(requestedPorts, resolvedPorts);
+  if (shifts.length) log.info(`[run] ports shifted: ${shifts.join(", ")}`);
+  log.info(`[run] ports: ${formatPortMap(resolvedPorts)}`);
+
   const paths = prepareRunDir({ osId: os.id, runId, root: projectRoot() });
   const composeFile = writeFileSync(
     paths.composeFile,
@@ -42,7 +55,7 @@ export async function run(opts) {
       os,
       runId,
       resources,
-      ports,
+      ports: resolvedPorts,
       extra,
       paths: {
         storage: paths.storageDir,

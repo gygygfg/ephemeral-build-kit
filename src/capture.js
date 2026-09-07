@@ -56,6 +56,10 @@ export async function captureSession(opts) {
       shotIndex = -1; // sentinel to stop the loop
     };
     signal?.addEventListener("abort", onAbort, { once: true });
+    // If the signal was already aborted before we attached the listener (e.g. a
+    // result marker was detected while the viewer was still connecting), stop
+    // immediately instead of capturing until the session is closed.
+    if (signal?.aborted) onAbort();
 
     const shouldStop = () => shotIndex < 0;
 

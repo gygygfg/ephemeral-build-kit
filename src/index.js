@@ -7,6 +7,8 @@ import { buildCompose } from "./compose.js";
 import { prepareRunDir, projectRoot, writeFileSync } from "./store.js";
 import { run, makeRunId } from "./orchestrator.js";
 import { execa } from "./exec.js";
+import { startBrowser, stopBrowser, browserStatus, browserRun } from "./browser.js";
+import { resolvePorts, describeShifts, formatPortMap } from "./ports.js";
 
 const VERSION = "0.1.0";
 
@@ -25,6 +27,7 @@ function addCommonOptions(cmd) {
     .option("--version-url <url>", "Custom Windows ISO/version URL")
     .option("--boot-url <url>", "Custom Linux image URL")
     .option("--web-port <port>", "Host port for the 8006 web viewer", (v) => Number(v), 8006)
+    .option("--vnc-port <port>", "Host port for the native 5900 VNC server", (v) => Number(v), 5900)
     .option("--ssh-port <port>", "Host port for guest SSH (Linux only)", (v) => Number(v))
     .option("--rdp-port <port>", "Host port for guest RDP (Windows only)", (v) => Number(v));
 }
@@ -34,7 +37,7 @@ function buildOptions(opts) {
   return {
     os,
     resources: { ram: opts.ram, cpu: opts.cpu, disk: opts.disk },
-    ports: { web: opts.webPort, rdp: opts.rdpPort, ssh: opts.sshPort },
+    ports: { web: opts.webPort, vnc: opts.vncPort, rdp: opts.rdpPort, ssh: opts.sshPort },
     extra: {
       debug: opts.debug,
       username: opts.username,
@@ -101,9 +104,23 @@ addCommonOptions(
     .description("Generate a docker-compose.yml for an OS without running it.")
     .option("--run-id <id>", "Optional run id used in names/paths")
     .requiredOption("--os <id>", "Operating system id")
-    .action((opts) => {
+    .action(async (opts) => {
       const o = buildOptions(opts);
       const runId = opts.runId || makeRunId();
+
+      // Resolve host ports, shifting to the next free port when one is occupied.
+      const requestedPorts = {
+        web: o.ports.web || 8006,
+        vnc: o.ports.vnc || 5900,
+      };
+      if (o.os.type === "windows" && o.ports.rdp) requestedPorts.rdp = o.ports.rdp;
+      if (o.os.type !== "windows" && o.ports.ssh) requestedPorts.ssh = o.ports.ssh;
+      const resolvedPorts = await resolvePorts(requestedPorts, { host: o.ports.host });
+      o.ports = resolvedPorts;
+      const shifts = describeShifts(requestedPorts, resolvedPorts);
+      if (shifts.length) console.log(`Ports shifted (occupied): ${shifts.join(", ")}`);
+      console.log(`Ports: ${formatPortMap(resolvedPorts)}`);
+
       const runDirs = prepareRunDir({ osId: o.os.id, runId, root: projectRoot() });
       const mountPaths = {
         storage: runDirs.storageDir,
@@ -151,6 +168,113 @@ addCommonOptions(
       console.log(`reason:     ${result.reason}`);
       console.log(`artifacts:  ${result.paths.artifactsDir}`);
       if (result.capture && result.capture.video) console.log(`video:      ${result.capture.video}`);
+      process.exit(result.success ? 0 : 1);
+    }),
+);
+
+function addBrowserOptions(cmd) {
+  return cmd
+    .option("--build-dir <dir>", "Build context dir (default <repo>/browser)")
+    .option("--browser-image <tag>", "Use a prebuilt image instead of building")
+    .option("--selenium-port <port>", "Host port for Selenium WebDriver (default 4444)", (v) => Number(v), 4444)
+    .option("--vnc-port <port>", "Host port for VNC (default 5900)", (v) => Number(v), 5900)
+    .option("--no-vnc-port <port>", "Host port for noVNC (default 7900)", (v) => Number(v), 7900)
+    .option("--shm-size <size>", "Shared memory size for the container (default 2gb)")
+    .option("--vnc-password <pass>", "VNC password (default secret)")
+    .option("--keep", "Keep the container, compose file and state after stopping");
+}
+
+function printBrowserInfo(state) {
+  console.log(`\nbrowser: ${state.containerName}`);
+  console.log(`selenium: http://127.0.0.1:${state.seleniumPort}/wd/hub`);
+  console.log(`noVNC:    http://127.0.0.1:${state.noVncPort}`);
+  console.log(`vnc:      127.0.0.1:${state.vncPort}  (password: ${state.vncPassword || "secret"})`);
+  if (state.runDir) console.log(`runDir:   ${state.runDir}`);
+}
+
+const browserCmd = program
+  .command("browser")
+  .description("Start / stop a disposable Selenium Chrome browser container.");
+
+addBrowserOptions(
+  browserCmd
+    .command("up")
+    .description("Start a browser container and stay running.")
+    .option("--run-id <id>", "Optional run id used in names/paths")
+    .action(async (opts) => {
+      const state = await startBrowser({
+        runId: opts.runId,
+        ports: { selenium: opts.seleniumPort, vnc: opts.vncPort, noVnc: opts.noVncPort },
+        extra: {
+          buildDir: opts.buildDir,
+          browserImage: opts.browserImage,
+          vncPassword: opts.vncPassword,
+          shmSize: opts.shmSize,
+        },
+        wait: {},
+        log: logger,
+      });
+      printBrowserInfo(state);
+    }),
+);
+
+addBrowserOptions(
+  browserCmd
+    .command("status")
+    .description("Show whether a browser container is running.")
+    .action(async () => {
+      const res = await browserStatus();
+      if (res.running) {
+        printBrowserInfo(res.state);
+      } else {
+        console.log("No browser container is currently running. Use `ebk browser up` to start one.");
+      }
+    }),
+);
+
+addBrowserOptions(
+  browserCmd
+    .command("down")
+    .description("Stop and remove the browser container.")
+    .action(async (opts) => {
+      const res = await stopBrowser({ keep: opts.keep });
+      if (res.stopped) console.log("Browser container stopped and removed.");
+      else console.log("No browser container is running (state file missing).");
+    }),
+);
+
+addBrowserOptions(
+  browserCmd
+    .command("run")
+    .description("Full pipeline: up, wait for WebDriver/noVNC, capture, cleanup.")
+    .option("--run-id <id>", "Optional run id used in names/paths")
+    .option("--test-dir <dir>", "Host dir that receives a RESULT_<runId>.* marker")
+    .option("--screenshot-every <sec>", "Screenshot interval in seconds", (v) => Number(v) * 1000, 30 * 1000)
+    .option("--no-video", "Disable full-session screen recording")
+    .option("--duration <sec>", "Capture duration in seconds when no --test-dir (default 60)", (v) => Number(v) * 1000, 60 * 1000)
+    .option("--test-timeout <min>", "Max minutes to wait for a result marker (default 20)", (v) => Number(v) * 60 * 1000, 20 * 60 * 1000)
+    .action(async (opts) => {
+      const result = await browserRun({
+        runId: opts.runId,
+        ports: { selenium: opts.seleniumPort, vnc: opts.vncPort, noVnc: opts.noVncPort },
+        extra: {
+          buildDir: opts.buildDir,
+          browserImage: opts.browserImage,
+          vncPassword: opts.vncPassword,
+          shmSize: opts.shmSize,
+        },
+        camera: { screenshotEveryMs: opts.screenshotEvery, record: opts.video !== false, durationMs: opts.duration },
+        testDir: opts.testDir,
+        testTimeoutMs: opts.testTimeout,
+        keep: opts.keep,
+        log: logger,
+      });
+
+      console.log(`\nrunId:      ${result.runId}`);
+      console.log(`success:    ${result.success}`);
+      console.log(`reason:     ${result.reason}`);
+      console.log(`artifacts:  ${result.capture?.screenshots || ""}`);
+      if (result.capture?.video) console.log(`video:      ${result.capture.video}`);
       process.exit(result.success ? 0 : 1);
     }),
 );

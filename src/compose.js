@@ -57,10 +57,12 @@ export function buildService(opts) {
   }
 
   // Port mappings. dockur/windows serves its web UI inside the container on
-  // 8006, RDP on 3389; qemus/qemu serves web on 8006 and SSH on 22. Format is
+  // 8006, RDP on 3389; qemus/qemu serves web on 8006 and SSH on 22. Both
+  // families also run a native VNC server on 5900 (VNC_PORT). Format is
   // HOST:CONTAINER, so we publish the container port to the chosen host port.
   svc.ports = [];
   if (ports.web) svc.ports.push(`${ports.web}:8006`);
+  if (ports.vnc) svc.ports.push(`${ports.vnc}:5900`);
   if (isWindows && ports.rdp) {
     svc.ports.push(`${ports.rdp}:3389/tcp`, `${ports.rdp}:3389/udp`);
   }
